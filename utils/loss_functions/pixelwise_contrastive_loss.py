@@ -130,7 +130,7 @@ class PixelwiseContrastiveLoss(object):
 
     @staticmethod
     def match_loss(image_a_pred, image_b_pred, matches_a, matches_b, M=1.0, 
-                    dist='euclidean', method='1d'): # dist = 'cos'
+                    dist='euclidean', method='1d', sos=True): # dist = 'cos'
         """
         Computes the match loss given by
 
@@ -185,6 +185,14 @@ class PixelwiseContrastiveLoss(object):
         # above, then the first dimension is collapsed down, and we end up 
         # with shape [D,], where we want [1,D]
         # this unsqueeze fixes that case
+
+        sos_loss = 0
+        if sos:
+            dist_a = matches_a_descriptors.mm(matches_a_descriptors.T)
+            dist_b = matches_b_descriptors.mm(matches_b_descriptors.T)
+            sos_loss = (dist_a - dist_b).triu(1).pow(2)
+            sos_loss = sos_loss.sum() / sos_loss.nonzero().size()[0]
+
         if len(matches_a) == 1:
             matches_a_descriptors = matches_a_descriptors.unsqueeze(0)
             matches_b_descriptors = matches_b_descriptors.unsqueeze(0)
@@ -195,6 +203,9 @@ class PixelwiseContrastiveLoss(object):
             match_loss = 1.0 / num_matches * match_loss.sum()
         else:
             match_loss = 1.0 / num_matches * (matches_a_descriptors - matches_b_descriptors).pow(2).sum()
+
+        if sos:
+            match_loss += sos_loss
 
         return match_loss, matches_a_descriptors, matches_b_descriptors
 

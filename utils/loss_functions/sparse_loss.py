@@ -57,8 +57,8 @@ def create_non_matches(uv_a, uv_b_non_matches, multiplier):
 
 def descriptor_loss_sparse(descriptors, descriptors_warped, homographies, mask_valid=None,
                            cell_size=8, device='cpu', descriptor_dist=4, lamda_d=250,
-                           num_matching_attempts=1000, num_masked_non_matches_per_match=10, 
-                           dist='cos', method='1d', **config):
+                           num_matching_attempts=1000, num_masked_non_matches_per_match=10,
+                           dist='cos', method='1d', sos=True, **config):
     """
     consider batches of descriptors
     :param descriptors:
@@ -92,10 +92,12 @@ def descriptor_loss_sparse(descriptors, descriptors_warped, homographies, mask_v
             return points[..., 0]*W + points[..., 1]
 
     ## calculate matches loss
-    def get_match_loss(image_a_pred, image_b_pred, matches_a, matches_b, dist='cos', method='1d'):
+    def get_match_loss(image_a_pred, image_b_pred, matches_a, matches_b, dist='cos', method='1d', sos=True):
         match_loss, matches_a_descriptors, matches_b_descriptors = \
             PixelwiseContrastiveLoss.match_loss(image_a_pred, image_b_pred, 
-                matches_a, matches_b, dist=dist, method=method)
+                matches_a, matches_b, dist=dist, method=method, sos=True)
+
+        # Add SOS Loss
         return match_loss
 
     def get_non_matches_corr(img_b_shape, uv_a, uv_b_matches, num_masked_non_matches_per_match=10, device='cpu'):
@@ -154,7 +156,7 @@ def descriptor_loss_sparse(descriptors, descriptors_warped, homographies, mask_v
     uv_a = get_coor_cells(Hc, Wc, cell_size, uv=True, device='cpu')
     # print("uv_a: ", uv_a[0])
 
-    homographies_H = scale_homography_torch(homographies, img_shape, shift=(-1, -1))
+    homographies_H = scale_homography_torch(homographies, img_shape, shift=(-1, -1))  # original scale is for image size, now downscale it to descriptor tensor size
 
     # print("experiment inverse homographies")
     # homographies_H = torch.stack([torch.inverse(H) for H in homographies_H])
@@ -176,7 +178,7 @@ def descriptor_loss_sparse(descriptors, descriptors_warped, homographies, mask_v
 
     uv_b_matches, mask = filter_points(uv_b_matches, torch.tensor([Wc, Hc]).to(device='cpu'), return_mask=True)
     # print ("pos mask sum: ", mask.sum())
-    uv_a = uv_a[mask]
+    uv_a = uv_a[mask]  # uv_a, uv_b_matches are the gt
 
     # crop to the same length
     shuffle = True
@@ -185,6 +187,8 @@ def descriptor_loss_sparse(descriptors, descriptors_warped, homographies, mask_v
     choice = torch.tensor(choice)
     uv_a = uv_a[choice]
     uv_b_matches = uv_b_matches[choice]
+
+    ## add reliability,
 
     if method == '2d':
         matches_a = normPts(uv_a, torch.tensor([Wc, Hc]).float()) # [u, v]
@@ -199,10 +203,10 @@ def descriptor_loss_sparse(descriptors, descriptors_warped, homographies, mask_v
 
     if method == '2d':
         match_loss = get_match_loss(descriptors, descriptors_warped, matches_a.to(device), 
-            matches_b.to(device), dist=dist, method='2d')
+            matches_b.to(device), dist=dist, method='2d', sos=sos)
     else:
         match_loss = get_match_loss(image_a_pred, image_b_pred, 
-            matches_a.long().to(device), matches_b.long().to(device), dist=dist)
+            matches_a.long().to(device), matches_b.long().to(device), dist=dist, sos=sos)
 
     # non matches
 

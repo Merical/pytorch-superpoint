@@ -3,7 +3,7 @@ data:
     dataset: 'Kitti_inh' # 'Kitti'
     root:  './datasets/KITTI/' # /data/kitti/kitti_wVal
     root_split_txt: 'datasets/kitti_split'   
-    labels: logs/magicpoint_synth20_homoAdapt100_kitti_h384_labels/predictions
+    labels: /home/sheli/PycharmProjects/pytorch-superpoint/logs/magicpoint_base_homoAdapt_kitti/predictions
 
     gaussian_label:
         enable: true
@@ -56,7 +56,7 @@ training:
     workers_val: 2 # 2
 
 model:
-    name: 'SuperPointNet_gauss2'
+    name: 'EfficientPointNet'
     params: {
     }
     detector_loss:

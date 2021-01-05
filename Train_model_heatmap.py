@@ -107,45 +107,6 @@ class Train_model_heatmap(Train_model_frontend):
         self.printImportantConfig()
         pass
 
-    ### loadModel inherited from Train_model_frontend
-    # def loadModel(self):
-    #     """
-    #     load model from name and params
-    #     init or load optimizer
-    #     :return:
-    #     """
-    #     model = self.config["model"]["name"]
-    #     params = self.config["model"]["params"]
-    #     print("model: ", model)
-    #     net = modelLoader(model=model, **params).to(self.device)
-    #     logging.info("=> setting adam solver")
-    #     optimizer = self.adamOptim(net, lr=self.config["model"]["learning_rate"])
-    #
-    #     n_iter = 0
-    #     ## new model or load pretrained
-    #     if self.config["retrain"] == True:
-    #         logging.info("New model")
-    #         pass
-    #     else:
-    #         path = self.config["pretrained"]
-    #         mode = "" if path[:-3] == ".pth" else "full"
-    #         logging.info("load pretrained model from: %s", path)
-    #         net, optimizer, n_iter = pretrainedLoader(
-    #             net, optimizer, n_iter, path, mode=mode, full_path=True
-    #         )
-    #         logging.info("successfully load pretrained model from: %s", path)
-    #
-    #     def setIter(n_iter):
-    #         if self.config["reset_iter"]:
-    #             logging.info("reset iterations to 0")
-    #             n_iter = 0
-    #         return n_iter
-    #
-    #     self.net = net
-    #     self.optimizer = optimizer
-    #     self.n_iter = setIter(n_iter)
-    #     pass
-
     def detector_loss(self, input, target, mask=None, loss_type="softmax"):
         """
         # apply loss on detectors, default is softmax

@@ -38,7 +38,7 @@ from utils.loader import get_save_path
 
 ###### train script ######
 def train_base(config, output_dir, args):
-    return train_joint(config, output_dir, args)
+    train_joint(config, output_dir, args)
     pass
 
 # def train_joint_dsac():

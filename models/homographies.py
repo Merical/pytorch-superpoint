@@ -369,3 +369,4 @@ def warp_keypoints_to_map(packed_arg):
                             shape)
 
     return new_map
+

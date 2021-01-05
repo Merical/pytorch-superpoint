@@ -2,7 +2,7 @@ data:
     # name: 'coco'
     dataset: 'Coco' # 'coco'
 
-    labels: datasets/magicpoint_synth20_homoAdapt100_coco_f1/predictions
+    labels: 'logs/magicpoint_coco_hompAdapt_superPointNetOpen/predictions'
     root: # datasets/COCO
     root_split_txt: # /datasets/COCO
 
@@ -11,8 +11,7 @@ data:
         params:
             GaussianBlur: {sigma: 0.2}
 
-
-    cache_in_memory: false
+    cache_in_memory: true
     preprocessing:
         resize: [240, 320]
         # resize: [480, 640]
@@ -57,18 +56,18 @@ training:
 model:
     # name: 'magic_point'
     # name: 'SuperPointNet_heatmap'
-    name: 'SuperPointNet_gauss2'
+    name: 'ShufflePointNet'
     params: {
     }
     detector_loss:
         loss_type: 'softmax'
 
 
-    batch_size: 8 # 32
-    eval_batch_size: 8 # 32
+    batch_size: 32 # 32
+    eval_batch_size: 32 # 32
     learning_rate: 0.0001 # 0.0001
     detection_threshold: 0.015 # 0.015
-    lambda_loss: 1 # 1
+    lambda_loss: 5 # 1
     nms: 4
     dense_loss:
         enable: false
@@ -99,7 +98,7 @@ tensorboard_interval: 200 # 200
 save_interval: 200 # 2000
 validation_size: 5
 
-pretrained: 
+#pretrained: 'logs/shufflePointNet_coco_label_superpointopen_1126/checkpoints/superPointNet_80837_checkpoint.pth.tar'
 
 
 

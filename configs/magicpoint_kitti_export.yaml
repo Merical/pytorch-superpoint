@@ -3,7 +3,7 @@ data:
     dataset: 'Kitti_inh'  # 'coco' 'hpatches', 'Kitti', ''
     export_folder: 'train'
     alteration: 'all'  # 'all' 'i' 'v'
-    root: 'datasets/kitti_wVal' # root for dataset
+    root: '/media/sheli/Data/Datasets/KITTI_wVal' # root for dataset
     root_split_txt: 'datasets/kitti_split'  # split file provided in datasets/kitti_split
     preprocessing:
        resize: [384, 1248]  # hand defined, original: [375, 1242]
@@ -14,7 +14,7 @@ data:
         sigma: 1.
     homography_adaptation:
         enable: true
-        num: 20 # 100
+        num: 16 # 100
         aggregation: 'sum'
         filter_counts: 0
         homographies:
@@ -33,7 +33,9 @@ data:
 #    validation_size: 100
 model:
     # name: 'SuperPointNet'  # need to use old version of network
-    name: 'SuperPointNet_gauss2' # 'SuperPointNet_gauss2'
+#    name: 'SuperPointNet_gauss2' # 'SuperPointNet_gauss2'
+    name: 'EfficientPointNet'
+
     batch_size: 1
     detection_threshold: 0.015 # 0.015
     nms: 4
@@ -46,6 +48,6 @@ model:
 # eval_iter: -1
 
 # pretrained: 'logs/magicpoint_synth20/checkpoints/superPointNet_200000_checkpoint.pth.tar'
-pretrained: 'logs/magicpoint_synth_t2/checkpoints/superPointNet_100000_checkpoint.pth.tar'
+pretrained: 'logs/magicpoint_synth/checkpoints/superPointNet_198000_checkpoint.pth.tar'
 
 

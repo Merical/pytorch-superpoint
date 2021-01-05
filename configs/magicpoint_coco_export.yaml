@@ -12,7 +12,7 @@ data:
             enable: false
     homography_adaptation:
         enable: true
-        num: 100 # 100
+        num: 128 # 100
         aggregation: 'sum'
         filter_counts: 0
         homographies:
@@ -32,7 +32,10 @@ training:
 
 model:
     # name: 'SuperPointNet' # 'SuperPointNet_gauss2'
-    name: 'SuperPointNet_gauss2' # 'SuperPointNet_gauss2'
+#    name: 'SuperPointNet_gauss2' # 'SuperPointNet_gauss2'
+#    name: 'EfficientPointNet'
+    name: 'SuperPointNetOpen' # 'SuperPointNet_gauss2'
+
     params: {
     }    
     batch_size: 1
@@ -44,6 +47,6 @@ model:
         enable: true
 
 # pretrained: 'logs/magicpoint_synth20/checkpoints/superPointNet_200000_checkpoint.pth.tar' # 'SuperPointNet'
-pretrained: 'logs/magicpoint_synth_t2/checkpoints/superPointNet_100000_checkpoint.pth.tar'
+pretrained: 'weights/superPointNetOpen_0_checkpoint.pth.tar'
 
 

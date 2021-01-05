@@ -197,8 +197,22 @@ def main():
     print("nn matches: ", iter_max/(end - start), " iters/s")
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    from torchstat import stat
+    import time
+
+    with torch.no_grad():
+        model = SuperPointNet_gauss2().cuda()
+        model.eval()
+        input = torch.rand([1, 1, 960, 1280]).cuda()
+        output = model.forward(input)
+
+        tic = time.time()
+        for _ in range(100):
+            output = model.forward(input)
+        toc = time.time()
+    print("Forward Flow Done, cost {} ms".format((toc - tic)*1000/100))
+    stat(model.cpu(), input_size=[1, 960, 1280])
 
 
 

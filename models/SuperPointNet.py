@@ -278,11 +278,18 @@ def upconv(in_planes, out_planes):
 
 
 if __name__ == '__main__':
+    import os
+    from torchstat import stat
+    import time
 
-  device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-  model = SuperPointNet()
-  model = model.to(device)
+    with torch.no_grad():
+        model = SuperPointNet().cuda()
+        model.eval()
+        input = torch.rand([1, 1, 960, 1280]).cuda()
+        output = model.forward(input)
 
-  # check keras-like model summary using torchsummary
-  from torchsummary import summary
-  summary(model, input_size=(1, 224, 224))
+        tic = time.time()
+        for _ in range(100):
+            output = model.forward(input)
+        toc = time.time()
+    print("Forward Flow Done, cost {} ms".format((toc - tic) * 1000 / 100))
