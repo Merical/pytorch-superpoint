@@ -191,7 +191,7 @@ class PixelwiseContrastiveLoss(object):
             dist_a = matches_a_descriptors.mm(matches_a_descriptors.T)
             dist_b = matches_b_descriptors.mm(matches_b_descriptors.T)
             sos_loss = (dist_a - dist_b).triu(1).pow(2)
-            sos_loss = sos_loss.sum() / sos_loss.nonzero().size()[0]
+            sos_loss = sos_loss.sum() / torch.nonzero(sos_loss).size()[0]
 
         if len(matches_a) == 1:
             matches_a_descriptors = matches_a_descriptors.unsqueeze(0)

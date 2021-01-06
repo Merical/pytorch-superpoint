@@ -173,6 +173,9 @@ class ShufflePointNetRel(nn.Module):
     def forward(self, x):
         _, _, height, width = x.shape
 
+        x_max = x.max()
+        x_min = x.min()
+
         x = self.conv1(x)
         # x = self.maxpool(x)
         x = self.features(x)

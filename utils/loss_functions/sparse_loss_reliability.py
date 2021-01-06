@@ -1,6 +1,7 @@
 import utils.correspondence_tools.correspondence_finder as correspondence_finder
 import numpy as np
 import torch
+import torch.nn as nn
 
 from utils.homographies import scale_homography_torch
 from utils.loss_functions.pixelwise_contrastive_loss import PixelwiseContrastiveLoss
@@ -55,7 +56,7 @@ def create_non_matches(uv_a, uv_b_non_matches, multiplier):
     return uv_a_long, uv_b_non_matches_long
 
 
-def descriptor_loss_sparse_reliability(descriptors, descriptors_warped, reliability, reliability_warp, homographies, mask_valid=None,
+def descriptor_loss_sparse_reliability(descriptors, descriptors_warped, reliability, reliability_warp, homographies, aplosser,  mask_valid=None,
                            cell_size=8, device='cpu', descriptor_dist=4, lamda_d=250, lamda_r=1,
                            num_matching_attempts=1000, num_masked_non_matches_per_match=10,
                            dist='cos', method='1d', sos=True, reli_base=0.5, **config):
@@ -127,6 +128,71 @@ def descriptor_loss_sparse_reliability(descriptors, descriptors_warped, reliabil
                                                                M=0.2, invert=True, dist=dist)
         non_match_loss = non_match_loss.sum()/(num_hard_negatives + 1)
         return non_match_loss
+
+    # def reliability_loss(descriptors_a, descriptors_b, gt, uv_a, uv_b):
+    #     dist = descriptors_a.mm(descriptors_b.T).pow(2)
+    #     dist = dist / dist.max()
+    #     acc = (dist * gt).sum(-1) # to be tested
+    #     # max = dist.max()
+    #     # min = dist.min()
+    #     # dist_diagonal = dist.diagonal().pow(2)
+    #     reli_a = reliability[:, uv_a[:, 1].long(), uv_a[:, 0].long()].transpose(1, 0)
+    #     reli_b = reliability_warp[:, uv_b[:, 1].long(), uv_b[:, 0].long()]
+    #     # reli = reli_a.mm(reli_b).pow(0.5)
+    #     reli = (reli_a + reli_b) / 2
+    #     ap_loss = 1 - acc * reli - (1 - reli) * reli_base
+    #     # ap_loss = 1 - dist_diagonal * reli
+    #     ap_loss = ap_loss.mean()
+    #     return ap_loss
+
+    def reliability_loss(descriptors_a, descriptors_b, image_b_pred, reliability_a, reliability_b, uv_a, uv_b, img_b_shape,
+                         aplosser, method='1d', device='cpu', reli_base=0.5):
+        uv_b = uv_b.squeeze()
+        uv_b_matches_tuple = uv_to_tuple(uv_b)
+        uv_b_non_matches_tuple = correspondence_finder.create_non_correspondences(uv_b_matches_tuple,
+                                        img_b_shape, num_non_matches_per_match=1,
+                                        img_b_mask=None)
+        _, uv_b_non_matches_tuple = create_non_matches(uv_to_tuple(uv_a), uv_b_non_matches_tuple, 1)
+        uv_b_non = tuple_to_uv(uv_b_non_matches_tuple).squeeze().transpose(1, 0) # negative sample coordinates
+
+        # generate negative descriptors
+        if method == '2d':
+            def sampleDescriptors(image_a_pred, matches_a, mode, norm=False):
+                image_a_pred = image_a_pred.unsqueeze(0)  # torch [1, D, H, W]
+                matches_a.unsqueeze_(0).unsqueeze_(2)
+                matches_a_descriptors = torch.nn.functional.grid_sample(image_a_pred, matches_a, mode=mode, align_corners=True)
+                matches_a_descriptors = matches_a_descriptors.squeeze().transpose(0, 1)
+
+                # print("image_a_pred: ", image_a_pred.shape)
+                # print("matches_a: ", matches_a.shape)
+                # print("matches_a: ", matches_a)
+                # print("matches_a_descriptors: ", matches_a_descriptors)
+                if norm:
+                    dn = torch.norm(matches_a_descriptors, p=2, dim=1)  # Compute the norm of b_descriptors
+                    matches_a_descriptors = matches_a_descriptors.div(
+                        torch.unsqueeze(dn, 1))  # Divide by norm to normalize.
+                return matches_a_descriptors
+
+            matches_b_non = normPts(uv_b_non, torch.tensor([img_b_shape[1],img_b_shape[0]]).float())
+            descriptors_b_non = sampleDescriptors(image_b_pred, matches_b_non.to(device), mode='bilinear', norm=False)
+        else:
+            matches_b_non = uv_to_1d(uv_b_matches, img_b_shape[1])
+            descriptors_b_non = torch.index_select(image_b_pred, 1, matches_b_non.long().to(device))
+
+        qconf = reliability_a[:, uv_a[:, 1].long(), uv_a[:, 0].long()] + \
+                reliability_b[:, uv_b[:, 1].long(), uv_b[:, 0].long()]
+
+        pscores = (descriptors_a * descriptors_b).sum(-1)[:, None]
+        nscores = (descriptors_a * descriptors_b_non).sum(-1)[:, None]
+        scores = torch.cat((pscores, nscores), dim=1)
+
+        gt = torch.zeros_like(scores, dtype=torch.uint8)
+        gt[:, :pscores.shape[1]] = 1
+
+        ap = aplosser(scores, gt)
+        ap_loss = 1 - ap*qconf - (1-qconf)*reli_base
+
+        return ap_loss.mean()
 
     from utils.utils import filter_points
     from utils.utils import crop_or_pad_choice
@@ -208,6 +274,17 @@ def descriptor_loss_sparse_reliability(descriptors, descriptors_warped, reliabil
         match_loss, matches_a_descriptors, matches_b_descriptors = get_match_loss(image_a_pred, image_b_pred,
             matches_a.long().to(device), matches_b.long().to(device), dist=dist, sos=sos)
 
+    # reliability loss
+    matches_a_descriptors, matches_b_descriptors = matches_a_descriptors.squeeze(), matches_b_descriptors.squeeze()
+    # gt = torch.eye(matches_a_descriptors.shape[0]).to(device)
+    if method == '2d':
+        ap_loss = reliability_loss(matches_a_descriptors, matches_b_descriptors, descriptors_warped, reliability, reliability_warp, uv_a, uv_b_matches, img_shape,
+                               aplosser, method=method, device=device, reli_base=reli_base)
+    else:
+        ap_loss = reliability_loss(matches_a_descriptors, matches_b_descriptors, image_b_pred, reliability, reliability_warp, uv_a, uv_b_matches, img_shape,
+                               aplosser, method=method, device=device, reli_base=reli_base)
+
+
     # non matches
 
     # get non matches correspondence
@@ -225,19 +302,6 @@ def descriptor_loss_sparse_reliability(descriptors, descriptors_warped, reliabil
                                         non_matches_b.to(device), dist=dist)
     # non_match_loss = non_match_loss.mean()
 
-    # reliability loss
-    matches_a_descriptors, matches_b_descriptors = matches_a_descriptors.squeeze(), matches_b_descriptors.squeeze()
-    dist = matches_a_descriptors.mm(matches_b_descriptors.T).pow(2)
-    dist = dist / dist.max() + 0.000001
-    # dist_diagonal = dist.diagonal().pow(2)
-    reli_a = reliability[:, uv_a[:, 1].long(), uv_a[:, 0].long()].transpose(1, 0)
-    reli_b = reliability_warp[:, uv_b_matches[:, 1].long(), uv_b_matches[:, 0].long()]
-    reli = reli_a.mm(reli_b).pow(0.5)
-    # reli = (reli_a + reli_b) / 2
-    ap_loss = 1 - dist * reli - (1 - reli) * reli_base
-    # ap_loss = 1 - dist_diagonal * reli
-    ap_loss = ap_loss.mean()
-
     loss = lamda_d * match_loss + lamda_r * ap_loss + non_match_loss
     return loss, lamda_d * match_loss, non_match_loss, lamda_r * ap_loss
     pass
@@ -249,7 +313,7 @@ pltImshow(img.numpy())
 
 """
 
-def batch_descriptor_loss_sparse_relibability(descriptors, descriptors_warped, reliability, reliability_warped, homographies, **options):
+def batch_descriptor_loss_sparse_relibability(descriptors, descriptors_warped, reliability, reliability_warped, homographies, aplosser, **options):
     loss = []
     pos_loss = []
     neg_loss = []
@@ -258,7 +322,7 @@ def batch_descriptor_loss_sparse_relibability(descriptors, descriptors_warped, r
     for i in range(batch_size):
         losses = descriptor_loss_sparse_reliability(descriptors[i], descriptors_warped[i], reliability[i],
                                                     reliability_warped[i],
-                                                    homographies[i].type(torch.float32), **options)
+                                                    homographies[i].type(torch.float32), aplosser, **options)
         loss.append(losses[0])
         pos_loss.append(losses[1])
         neg_loss.append(losses[2])
