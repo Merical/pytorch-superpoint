@@ -181,6 +181,7 @@ def descriptor_loss_sparse_reliability(descriptors, descriptors_warped, reliabil
 
         qconf = reliability_a[:, uv_a[:, 1].long(), uv_a[:, 0].long()] + \
                 reliability_b[:, uv_b[:, 1].long(), uv_b[:, 0].long()]
+        qconf /= 2
 
         pscores = (descriptors_a * descriptors_b).sum(-1)[:, None]
         nscores = (descriptors_a * descriptors_b_non).sum(-1)[:, None]

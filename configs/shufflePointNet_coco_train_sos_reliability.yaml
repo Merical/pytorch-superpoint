@@ -82,7 +82,7 @@ model:
             num_matching_attempts: 1000
             num_masked_non_matches_per_match: 100
             lamda_d: 1
-            lamda_r: 5
+            lamda_r: 2
             dist: 'cos'
             method: '2d'
             sos: True
